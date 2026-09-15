@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>리코더 수행평가 트레이너</title>
+<style>
+:root{
+  --bg:#0f1420; --panel:#182030; --panel2:#202a3d; --text:#f7f9ff;
+  --muted:#9eabc0; --accent:#7381ff; --good:#53e0a1; --warn:#ffd166; --bad:#ff6b78;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Noto Sans KR",sans-serif}
+.app{max-width:1100px;margin:auto;padding:20px}
+h1{margin:0 0 6px;font-size:28px}.sub{color:var(--muted);margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid #28334a;border-radius:18px;padding:18px;margin-bottom:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,select,input{font:inherit}
+button{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}
+button.primary{background:var(--accent);color:white}
+button.secondary{background:#2b364c;color:white}
+button.danger{background:#4a2b35;color:white}
+button:disabled{opacity:.45;cursor:default}
+label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px}
+select,input[type="number"],input[type="file"]{background:#101725;color:white;border:1px solid #35425d;border-radius:10px;padding:9px}
+.modeTabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modeBtn.active{background:var(--accent);color:white}.modeBtn:not(.active){background:#273147;color:#dbe1ef}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.8fr);gap:14px}
+.viewport{position:relative;height:190px;overflow:hidden;background:#0d1320;border-radius:16px}
+.playLine{position:absolute;left:34%;top:0;bottom:0;width:3px;background:#fff;opacity:.9;z-index:4}
+.track{position:absolute;top:40px;left:0;height:120px;display:flex;gap:8px;align-items:center;will-change:transform}
+.noteBox{height:100px;min-width:48px;background:#283247;border-radius:13px;display:flex;flex-direction:column;justify-content:center;align-items:center;flex-shrink:0}
+.noteBox .sol{font-size:28px;font-weight:900}.noteBox .beat{font-size:11px;color:#aeb8ca;margin-top:6px}
+.noteBox.active{background:#5367ef;transform:translateY(-5px)}.noteBox.done{background:#234a40}
+.progress{height:9px;background:#30394d;border-radius:99px;overflow:hidden;margin-top:14px}.progress>div{height:100%;width:0;background:var(--accent)}
+.infoRow{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px;margin-top:10px}
+.nowCard{min-height:330px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.bigNote{font-size:120px;line-height:1;font-weight:1000;margin:16px 0;--fill:0%;
+  background:linear-gradient(90deg,var(--good) 0%,var(--good) var(--fill),#3b4557 var(--fill),#3b4557 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.pitchName{color:var(--muted);font-size:20px}
+.detected{margin-top:20px;padding-top:16px;border-top:1px solid #2d3850;width:100%}
+.detected strong{font-size:26px}.judge{font-size:26px;font-weight:900;min-height:32px;margin-top:8px}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.countdown{display:none;text-align:center;font-size:84px;font-weight:1000;padding:30px}
+.staffWrap{display:none}.staff{position:relative;height:210px;background:#fbfbfd;border-radius:15px;overflow:hidden;color:#111}
+.staffLines{position:absolute;left:3%;right:3%;top:56px;height:80px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 19px,#333 20px,#333 21px)}
+.staffTrack{position:absolute;left:0;top:0;height:100%;display:flex;gap:8px;align-items:center;will-change:transform}
+.staffNote{position:relative;flex-shrink:0;height:150px;min-width:50px}
+.noteHead{position:absolute;width:18px;height:13px;background:#161616;border-radius:50%;left:50%;transform:translateX(-50%) rotate(-18deg)}
+.stem{position:absolute;width:2px;height:42px;background:#161616;left:calc(50% + 7px)}
+.rhythmBar{position:absolute;left:8px;right:8px;bottom:8px;height:8px;background:#606a7c;border-radius:99px}
+.staffNote.active .rhythmBar{background:#202bd5}.staffNote.done{opacity:.4}
+.result{display:none}.scoreBig{text-align:center;font-size:72px;font-weight:1000}
+.resultGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:var(--panel2);border-radius:14px;padding:16px;text-align:center}.metric b{display:block;font-size:30px;margin-top:5px}
+.feedback{margin-top:14px;background:#111827;border-radius:14px;padding:15px;line-height:1.7}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}
+video,audio{width:100%;margin-top:10px}
+.hidden{display:none!important}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.bigNote{font-size:94px}.resultGrid{grid-template-columns:1fr}.app{padding:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎵 리코더 수행평가 트레이너</h1>
+  <div class="sub">연습 모드에서는 계이름 힌트를 보고, 실전 모드에서는 계이름 없이 음표 위치와 박자만 보고 연주합니다.</div>
+
+  <div class="panel">
+    <div class="modeTabs">
+      <button id="practiceTab" class="modeBtn active">📘 연습 모드</button>
+      <button id="testTab" class="modeBtn">🎤 실전 테스트</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <label>구간
+        <select id="rangeSelect">
+          <option value="all">전체</option>
+          <option value="17-25">17~25마디</option>
+          <option value="26-33">26~33마디</option>
+          <option value="58-65">58~65마디</option>
+        </select>
+      </label>
+      <label>속도
+        <select id="speedSelect">
+          <option value="0.75">0.75×</option>
+          <option value="0.9">0.90×</option>
+          <option value="1" selected>1.00×</option>
+        </select>
+      </label>
+      <label>기본 BPM
+        <input id="bpmInput" type="number" value="86" min="40" max="180" step="1">
+      </label>
+      <label>악보 시작 지연(초)
+        <input id="offsetInput" type="number" value="0" min="0" max="30" step="0.1">
+      </label>
+    </div>
+    <div style="margin-top:12px">
+      <label>MR/영상 파일 선택
+        <input id="mediaFile" type="file" accept="audio/*,video/*">
+      </label>
+    </div>
+    <div id="mediaHost"></div>
+    <div class="hint" style="margin-top:10px">
+      MR 파일을 고르면 그 파일의 재생시간을 기준으로 악보가 진행됩니다. 파일이 없으면 설정한 BPM으로 내부 타이머가 작동합니다.
+      마이크는 Chrome에서 HTTPS 또는 localhost 실행 시 가장 안정적입니다.
+    </div>
+  </div>
+
+  <div id="countdown" class="panel countdown">3</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div id="practiceView">
+        <div class="viewport" id="viewport">
+          <div class="playLine"></div>
+          <div class="track" id="track"></div>
+        </div>
+      </div>
+
+      <div id="testView" class="staffWrap">
+        <div class="staff" id="staffViewport">
+          <div class="playLine"></div>
+          <div class="staffLines"></div>
+          <div class="staffTrack" id="staffTrack"></div>
+        </div>
+      </div>
+
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="infoRow">
+        <span id="measureInfo">준비</span>
+        <span id="progressText">0%</span>
+      </div>
+    </div>
+
+    <div class="panel nowCard">
+      <div id="practiceNow">
+        <div style="color:var(--muted);font-size:13px">지금 불어야 할 음</div>
+        <div id="bigNote" class="bigNote">-</div>
+        <div id="pitchName" class="pitchName">준비</div>
+      </div>
+
+      <div id="testNow" class="hidden">
+        <div style="color:var(--muted);font-size:13px">실전 모드</div>
+        <div style="font-size:84px;margin:18px 0">♪</div>
+        <div id="testBeatText" style="font-size:22px;font-weight:900">박자에 맞춰 연주</div>
+      </div>
+
+      <div class="detected">
+        <div style="color:var(--muted);font-size:13px">마이크 감지</div>
+        <strong id="detectedNote">-</strong>
+        <div id="centsText" class="hint">마이크 대기</div>
+        <div id="judge" class="judge"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <button id="startBtn" class="primary">▶ 시작</button>
+      <button id="stopBtn" class="secondary" disabled>■ 중지</button>
+      <button id="restartBtn" class="secondary">↻ 처음부터</button>
+    </div>
+  </div>
+
+  <div id="resultPanel" class="panel result">
+    <div style="font-weight:900;font-size:22px">연주 결과</div>
+    <div id="finalScore" class="scoreBig">0점</div>
+    <div class="resultGrid">
+      <div class="metric">음정 정확도<b id="pitchScore">0</b></div>
+      <div class="metric">박자 정확도<b id="timingScore">0</b></div>
+      <div class="metric">완주도<b id="completionScore">0</b></div>
+    </div>
+    <div id="feedback" class="feedback"></div>
+  </div>
+</div>
+
+<script>
+/*
+  ===== 악보 데이터 =====
+  beats는 음 길이(4분음표=1, 8분음표=0.5, 2분음표=2, 점4분음표=1.5).
+  사진에서 판독 가능한 수행평가 구간을 넣기 위한 구조입니다.
+  추후 정확한 마디/박자 확인 시 이 배열만 수정하면 UI/채점 로직은 그대로 사용합니다.
+*/
+
+const SCORE = [
+  // 17~25
+  {m:17,n:"D4",s:"레",b:.5},{m:17,n:"F4",s:"파",b:.5},{m:17,n:"A4",s:"라",b:.5},{m:17,n:"C5",s:"도",b:.5},
+  {m:18,n:"D5",s:"레",b:.5},{m:18,n:"E5",s:"미",b:.5},{m:18,n:"B4",s:"시",b:.5},{m:18,n:"G4",s:"솔",b:.5},
+  {m:19,n:"A4",s:"라",b:1.5},{m:20,n:"C5",s:"도",b:.5},{m:20,n:"C5",s:"도",b:.5},{m:20,n:"C5",s:"도",b:.5},{m:20,n:"C5",s:"도",b:.5},
+  {m:21,n:"C5",s:"도",b:.5},{m:21,n:"B4",s:"시",b:.5},{m:21,n:"A4",s:"라",b:.5},{m:21,n:"B4",s:"시",b:.5},
+  {m:22,n:"G4",s:"솔",b:1.5},{m:22,n:"F4",s:"파",b:.5},{m:22,n:"G4",s:"솔",b:.5},
+  {m:23,n:"A4",s:"라",b:.5},{m:23,n:"A4",s:"라",b:.5},{m:23,n:"A4",s:"라",b:.5},{m:23,n:"A4",s:"라",b:.5},
+  {m:24,n:"A4",s:"라",b:.5},{m:24,n:"G4",s:"솔",b:.5},{m:24,n:"F4",s:"파",b:.5},{m:24,n:"G4",s:"솔",b:.5},
+  {m:25,n:"B4",s:"시",b:1.5},
+
+  // 26~33
+  {m:26,n:"E4",s:"미",b:.5},{m:26,n:"C5",s:"도",b:1},{m:26,n:"E4",s:"미",b:.5},{m:26,n:"B4",s:"시",b:1},
+  {m:27,n:"E4",s:"미",b:.5},{m:27,n:"A4",s:"라",b:1},{m:27,n:"G4",s:"솔",b:.5},{m:27,n:"F4",s:"파",b:.5},{m:27,n:"G4",s:"솔",b:1},
+  {m:28,n:"C4",s:"도",b:.5},{m:28,n:"D4",s:"레",b:.5},{m:28,n:"F4",s:"파",b:.5},{m:28,n:"A4",s:"라",b:.5},
+  {m:29,n:"C5",s:"도",b:.5},{m:29,n:"B4",s:"시",b:.5},{m:29,n:"G4",s:"솔",b:.5},{m:29,n:"E4",s:"미",b:.5},{m:29,n:"D4",s:"레",b:.5},
+  {m:30,n:"D4",s:"도",b:1},{m:30,n:"E4",s:"미",b:.5},{m:30,n:"B4",s:"시",b:.5},
+  {m:31,n:"E4",s:"미",b:.5},{m:31,n:"A4",s:"라",b:1},{m:31,n:"G4",s:"솔",b:.5},{m:31,n:"F4",s:"파",b:.5},{m:31,n:"G4",s:"솔",b:1},
+  {m:32,n:"E4",s:"미",b:.5},{m:32,n:"D4",s:"레",b:.5},{m:32,n:"F4",s:"파",b:.5},{m:32,n:"A4",s:"라",b:.5},
+  {m:33,n:"C5",s:"도",b:.5},{m:33,n:"D5",s:"레",b:.5},{m:33,n:"E5",s:"미",b:.5},{m:33,n:"B4",s:"시",b:.5},{m:33,n:"G4",s:"솔",b:.5},{m:33,n:"A4",s:"라",b:2},
+
+  // 58~65
+  {m:58,n:"C5",s:"도",b:.5},{m:58,n:"E4",s:"미",b:.5},{m:58,n:"D5",s:"레",b:.5},{m:58,n:"C5",s:"도",b:.5},
+  {m:59,n:"B4",s:"시",b:.5},{m:59,n:"E4",s:"미",b:.5},{m:59,n:"C5",s:"도",b:.5},{m:59,n:"B4",s:"시",b:.5},
+  {m:60,n:"A4",s:"라",b:1},{m:60,n:"G4",s:"솔",b:.5},{m:60,n:"F4",s:"파",b:.5},{m:60,n:"G4",s:"솔",b:1.5},
+  {m:61,n:"E4",s:"미",b:.5},{m:61,n:"F4",s:"파",b:.5},{m:61,n:"G4",s:"솔",b:.5},{m:61,n:"F4",s:"파",b:.5},
+  {m:61,n:"E4",s:"미",b:.5},{m:61,n:"F4",s:"파",b:.5},{m:61,n:"E4",s:"미",b:.5},{m:61,n:"D#4",s:"레#",b:1},
+  {m:62,n:"C5",s:"도",b:.5},{m:62,n:"E4",s:"미",b:.5},{m:62,n:"D5",s:"레",b:.5},{m:62,n:"C5",s:"도",b:.5},
+  {m:63,n:"B4",s:"시",b:.5},{m:63,n:"E4",s:"미",b:.5},{m:63,n:"C5",s:"도",b:.5},{m:63,n:"B4",s:"시",b:.5},
+  {m:64,n:"A4",s:"라",b:1},{m:64,n:"G4",s:"솔",b:.5},{m:64,n:"F4",s:"파",b:.5},{m:64,n:"G4",s:"솔",b:1.5},
+  {m:65,n:"E4",s:"미",b:.5},{m:65,n:"F4",s:"파",b:.5},{m:65,n:"A4",s:"라",b:.5},{m:65,n:"C5",s:"도",b:.5},{m:65,n:"B4",s:"시",b:.5},{m:65,n:"B4",s:"시",b:.5},{m:65,n:"A4",s:"라",b:2}
+];
+
+const $=id=>document.getElementById(id);
+let mode="practice", running=false, raf=null, startedAt=0, audioCtx=null, analyser=null, micStream=null, mediaEl=null, samples=[], activeIndex=-1;
+let selectedScore=[];
+
+function rangeFilter(){
+  const v=$("rangeSelect").value;
+  if(v==="all") return SCORE.slice();
+  const [a,b]=v.split("-").map(Number);
+  return SCORE.filter(x=>x.m>=a&&x.m<=b);
+}
+function secondsPerBeat(){ return 60 / Math.max(40,Math.min(180,Number($("bpmInput").value)||86)); }
+function noteStartTimes(){
+  let t=0; return selectedScore.map(x=>{const o=t;t+=x.b*secondsPerBeat();return o;});
+}
+function totalDuration(){return selectedScore.reduce((a,x)=>a+x.b*secondsPerBeat(),0)}
+function midi(note){
+  const m=note.match(/^([A-G])(#?)(\d)$/); if(!m)return null;
+  const base={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+(m[2]?1:0);
+  return (Number(m[3])+1)*12+base;
+}
+function noteName(md){
+  const n=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return n[(md%12+12)%12]+(Math.floor(md/12)-1);
+}
+function render(){
+  selectedScore=rangeFilter();
+  $("track").innerHTML=""; $("staffTrack").innerHTML="";
+  selectedScore.forEach((x,i)=>{
+    const w=Math.max(48,x.b*84);
+    const d=document.createElement("div");d.className="noteBox";d.style.width=w+"px";d.dataset.i=i;
+    d.innerHTML=`<div class="sol">${x.s}</div><div class="beat">${x.b}박</div>`;$("track").appendChild(d);
+
+    const s=document.createElement("div");s.className="staffNote";s.style.width=w+"px";s.dataset.i=i;
+    const md=midi(x.n), y=118-(md-60)*5.2;
+    s.innerHTML=`<div class="noteHead" style="top:${Math.max(24,Math.min(130,y))}px"></div>
+                 <div class="stem" style="top:${Math.max(24,Math.min(130,y))-32}px"></div>
+                 <div class="rhythmBar"></div>`;
+    $("staffTrack").appendChild(s);
+  });
+}
+function stateAt(t){
+  const starts=noteStartTimes();
+  for(let i=0;i<selectedScore.length;i++){
+    const dur=selectedScore[i].b*secondsPerBeat();
+    if(t>=starts[i]&&t<starts[i]+dur)return {i,p:(t-starts[i])/dur,remain:starts[i]+dur-t};
+  }
+  return {i:-1,p:1,remain:0};
+}
+function moveTrack(el,viewport,index,p){
+  const cards=el.children, c=cards[index]; if(!c)return;
+  for(let i=0;i<cards.length;i++){cards[i].classList.toggle("done",i<index);cards[i].classList.toggle("active",i===index)}
+  const line=viewport.clientWidth*.34, cur=c.offsetLeft+c.offsetWidth*p;
+  el.style.transform=`translateX(${line-cur}px)`;
+}
+function setMode(m){
+  mode=m;
+  $("practiceTab").classList.toggle("active",m==="practice"); $("testTab").classList.toggle("active",m==="test");
+  $("practiceView").classList.toggle("hidden",m!=="practice");
+  $("testView").style.display=m==="test"?"block":"none";
+  $("practiceNow").classList.toggle("hidden",m!=="practice");
+  $("testNow").classList.toggle("hidden",m!=="test");
+  $("detectedNote").style.visibility=m==="test"?"hidden":"visible";
+  $("centsText").style.visibility=m==="test"?"hidden":"visible";
+  $("judge").style.visibility=m==="test"?"hidden":"visible";
+}
+async function countdown(){
+  $("countdown").style.display="block";
+  for(const v of ["3","2","1"]){$("countdown").textContent=v;await new Promise(r=>setTimeout(r,650))}
+  $("countdown").textContent="START";await new Promise(r=>setTimeout(r,450));$("countdown").style.display="none";
+}
+async function micStart(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=2048;
+    audioCtx.createMediaStreamSource(micStream).connect(analyser); await audioCtx.resume(); return true;
+  }catch(e){$("centsText").textContent="마이크 사용 불가";return false}
+}
+function autoCorrelate(buf,rate){
+  let rms=0;for(const v of buf)rms+=v*v;rms=Math.sqrt(rms/buf.length);if(rms<.012)return -1;
+  let best=-1,bestCorr=0;
+  for(let off=25;off<buf.length/2;off++){let diff=0;for(let i=0;i<buf.length-off;i++)diff+=Math.abs(buf[i]-buf[i+off]);const c=1-diff/(buf.length-off);if(c>bestCorr){bestCorr=c;best=off}}
+  return bestCorr>.80?rate/best:-1;
+}
+function analyzePitch(target,index,timeInNote){
+  if(!analyser||!audioCtx)return;
+  const buf=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(buf);const f=autoCorrelate(buf,audioCtx.sampleRate);
+  if(f<=0){$("detectedNote").textContent="-"; if(mode==="practice")$("judge").textContent=""; return;}
+  const md=Math.round(69+12*Math.log2(f/440)), name=noteName(md), tm=midi(target.n);
+  const nearest=440*Math.pow(2,(md-69)/12), cents=1200*Math.log2(f/nearest), diff=Math.abs(md-tm);
+  $("detectedNote").textContent=name;$("centsText").textContent=`${Math.round(cents)} cents`;
+  let score=0,grade="MISS",cls="bad";
+  if(diff===0&&Math.abs(cents)<=30){score=100;grade="GREAT";cls="good"}
+  else if(diff===0&&Math.abs(cents)<=50){score=80;grade="GOOD";cls="warn"}
+  else if(diff===0){score=60;grade="OK";cls="warn"}
+  if(mode==="practice"){$("judge").textContent=grade;$("judge").className="judge "+cls}
+  samples.push({i:index,score,timeInNote});
+}
+function elapsed(){
+  const offset=Math.max(0,Number($("offsetInput").value)||0);
+  if(mediaEl && !mediaEl.paused) return Math.max(0,mediaEl.currentTime-offset);
+  return (performance.now()-startedAt)/1000;
+}
+function loop(){
+  if(!running)return;
+  const t=elapsed(), total=totalDuration(), st=stateAt(t), ov=Math.min(1,t/Math.max(.001,total));
+  $("progressBar").style.width=(ov*100)+"%"; $("progressText").textContent=Math.round(ov*100)+"%";
+  if(st.i>=0){
+    const x=selectedScore[st.i];
+    $("measureInfo").textContent=`${x.m}마디 · ${st.i+1}/${selectedScore.length}`;
+    if(mode==="practice"){
+      $("bigNote").textContent=x.s;$("pitchName").textContent=x.n;$("bigNote").style.setProperty("--fill",(st.p*100)+"%");
+      moveTrack($("track"),$("viewport"),st.i,st.p);
+    }else{
+      $("testBeatText").textContent=`${x.b}박`;moveTrack($("staffTrack"),$("staffViewport"),st.i,st.p);
+    }
+    if(activeIndex!==st.i)activeIndex=st.i;
+    analyzePitch(x,st.i,st.p);
+  }
+  if(t>=total){finish(true);return}
+  raf=requestAnimationFrame(loop);
+}
+async function start(){
+  if(running)return;
+  render(); samples=[];activeIndex=-1;$("resultPanel").style.display="none";
+  $("startBtn").disabled=true;$("stopBtn").disabled=false;
+  await micStart(); await countdown();
+  if(mediaEl){mediaEl.playbackRate=Number($("speedSelect").value)||1;mediaEl.currentTime=0;try{await mediaEl.play()}catch(e){}}
+  startedAt=performance.now();running=true;loop();
+}
+function stopTracks(){if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null}if(audioCtx){audioCtx.close();audioCtx=null;analyser=null}}
+function finish(showResult){
+  running=false;cancelAnimationFrame(raf);if(mediaEl)mediaEl.pause();stopTracks();
+  $("startBtn").disabled=false;$("stopBtn").disabled=true;
+  if(showResult)results();
+}
+function results(){
+  const per=selectedScore.map((_,i)=>samples.filter(s=>s.i===i));
+  const pitchVals=per.map(a=>a.length?a.sort((x,y)=>y.score-x.score).slice(0,Math.max(1,Math.floor(a.length*.4))).reduce((s,x)=>s+x.score,0)/Math.max(1,Math.floor(a.length*.4)):0);
+  const pitch=Math.round(pitchVals.reduce((a,b)=>a+b,0)/Math.max(1,pitchVals.length));
+  const detectedNotes=per.filter(a=>a.length>0).length;
+  const completion=Math.round(100*detectedNotes/Math.max(1,selectedScore.length));
+  const timingVals=per.map(a=>{if(!a.length)return 0;const first=a.find(x=>x.score>=60);if(!first)return 0;const e=Math.abs(first.timeInNote);return e<.18?100:e<.35?80:e<.55?60:40});
+  const timing=Math.round(timingVals.reduce((a,b)=>a+b,0)/Math.max(1,timingVals.length));
+  const final=Math.round(pitch*.65+timing*.2+completion*.15);
+  $("finalScore").textContent=final+"점";$("pitchScore").textContent=pitch;$("timingScore").textContent=timing;$("completionScore").textContent=completion+"%";
+  const weak=[];pitchVals.forEach((v,i)=>{if(v<70)weak.push(`${selectedScore[i].m}마디 ${selectedScore[i].s}`)});
+  let msg=final>=90?"🏆 매우 안정적인 연주입니다.":final>=75?"👍 전체적으로 잘 연주했습니다.":"🎵 음정과 시작 타이밍을 조금 더 맞춰보세요.";
+  if(weak.length)msg+=`<br><br><b>다시 연습할 부분:</b> ${weak.slice(0,12).join(" · ")}${weak.length>12?" …":""}`;
+  $("feedback").innerHTML=msg;$("resultPanel").style.display="block";$("resultPanel").scrollIntoView({behavior:"smooth"});
+}
+$("practiceTab").addEventListener("click",()=>setMode("practice"));
+$("testTab").addEventListener("click",()=>setMode("test"));
+$("rangeSelect").addEventListener("change",render);
+$("bpmInput").addEventListener("change",render);
+$("startBtn").addEventListener("click",start);
+$("stopBtn").addEventListener("click",()=>finish(true));
+$("restartBtn").addEventListener("click",()=>{finish(false);render();$("progressBar").style.width="0";$("progressText").textContent="0%";$("measureInfo").textContent="준비";$("bigNote").textContent="-";$("bigNote").style.setProperty("--fill","0%")});
+$("mediaFile").addEventListener("change",e=>{
+  if(mediaEl){mediaEl.pause();URL.revokeObjectURL(mediaEl.src)}
+  const f=e.target.files[0];if(!f)return;
+  mediaEl=document.createElement(f.type.startsWith("video/")?"video":"audio");mediaEl.controls=true;mediaEl.src=URL.createObjectURL(f);
+  $("mediaHost").innerHTML="";$("mediaHost").appendChild(mediaEl);
+});
+setMode("practice");render();
+</script>
+</body>
+</html>
